@@ -1,0 +1,118 @@
+:root{
+  --bg:#f6f4fb;
+  --panel:#ffffff;
+  --panel2:#f3eff9;
+  --line:#ddd5e8;
+  --text:#272133;
+  --muted:#776b84;
+  --accent:#8a5bc2;
+  --accent2:#6686d9;
+  --good:#2f9b68;
+  --warn:#b87912;
+  --bad:#c84d68;
+  --blue:#477fbe;
+}
+
+body{
+  background:
+    radial-gradient(circle at 14% -8%,rgba(178,145,222,.24),transparent 31%),
+    radial-gradient(circle at 92% 0%,rgba(143,184,235,.2),transparent 28%),
+    linear-gradient(180deg,#fbfaff 0,#f5f2f9 100%);
+  color:var(--text);
+}
+
+.top{
+  background:rgba(255,255,255,.9);
+  border-bottom:1px solid #e5dfea;
+  box-shadow:0 4px 18px rgba(59,42,78,.06);
+}
+.brand{color:#33283f}
+.brand small,.tiny,.muted{color:var(--muted)}
+.tabs{background:#f3eef7;border-color:#ded4e8}
+.tab{color:#6e607b}
+.tab.active{background:#fff;color:#654092;box-shadow:0 2px 8px rgba(85,57,107,.12)}
+
+.panel{
+  background:rgba(255,255,255,.96);
+  border-color:#e0d8e7;
+  box-shadow:0 12px 30px rgba(70,49,90,.08);
+}
+.sectionTitle{border-color:#eee8f2}
+
+.btn,.field{
+  background:#fff;
+  color:#342b3e;
+  border-color:#d8cfe1;
+  box-shadow:0 1px 2px rgba(46,33,56,.03);
+}
+.field:focus{border-color:#a881cc;box-shadow:0 0 0 3px rgba(138,91,194,.12)}
+.btn:hover{background:#f7f2fb;border-color:#c7b7d7}
+.btn.primary{
+  background:linear-gradient(135deg,#9b6cc9,#7c8ed8);
+  color:#fff;
+  box-shadow:0 5px 14px rgba(122,87,175,.18);
+}
+.btn.primary:hover{filter:brightness(1.03)}
+.btn.good{background:#edf8f3;border-color:#a9d6c3;color:#267b58}
+.btn.danger{background:#fff0f2;border-color:#e8b6c0;color:#ac4057}
+.btn.ghost{background:#faf8fc;color:#71657c}
+
+.strategyBar,.mapBar{background:linear-gradient(180deg,#fff,#fbf9fd)}
+.catItem{background:#fbf9fd;border-color:#e3dbe9}
+.catItem:hover{background:#f6f0fa}
+.catItem.active{background:#f0e6f8;border-color:#b996d3;color:#55356f}
+.catCount{color:#8a7c94}
+
+.catHero .desc,.rankHint{color:#74677e}
+.rankedList{background:#fbf9fd;border-color:#cdbbdc}
+.rankCard,.poolCard{background:#fff;border-color:#ddd3e5;color:#342c3d;box-shadow:0 2px 7px rgba(63,46,75,.04)}
+.rankCard:hover,.poolCard:hover{border-color:#bfa6d1;background:#fcf8ff}
+.rankNum{background:#eee5f4;color:#6a4585}
+.rankCard .remove{color:#967fa3}
+.poolCard.used{background:#f3eff5;opacity:.65}
+.poolCard .plus{color:#8b61a7}
+.dropTarget{outline-color:#a76fcc}
+.tag{background:#f2ecf7;border-color:#d8c9e3;color:#6c527d}
+
+.pill{background:#f8f5fa;border-color:#ded6e5;color:#695d72}
+.chip{background:#faf7fc;border-color:#d9cfe1;color:#665a70}
+.chip:hover{background:#f3ebf8}
+.chip.on{background:#e9dbf4;border-color:#a97ac7;color:#513269}
+.chip.threat.on{background:#f8e3e7;border-color:#d98b9c;color:#8d3549}
+
+.recRow{border-color:#eee8f2}
+.recRank{background:#f0e8f5;color:#735487}
+.recName{color:#342b3e}
+.recWhy{color:#84788d}
+
+.matrix th,.matrix td,.intelPanel th,.intelPanel td{border-color:#eee8f2}
+.matrix th,.intelPanel th{color:#7e7188}
+.covered{color:#27865f}.missing{color:#bd4b62}
+
+.civ{background:#fff;border-color:#ded5e6;color:#322a3b;box-shadow:0 2px 8px rgba(69,50,82,.04)}
+.civ:hover{border-color:#b99dce;background:#fdfaff}
+.civ.our{background:#ebf8f1;border-color:#86c7aa}
+.civ.opp{background:#fff0f2;border-color:#dfa1ad}
+.civ.ban{background:#f1eef3;opacity:.58}
+.civCats{color:#8b7f93}
+.stateBadge{background:#eee8f2;color:#71657a}
+.civ.our .stateBadge{background:#d7f0e4;color:#34775b}
+.civ.opp .stateBadge{background:#f5d9df;color:#99455a}
+.civ.ban .stateBadge{background:#e5e0e8;color:#6f6874}
+
+.alertsPanel{background:linear-gradient(180deg,#fffaf0,#fff);border-color:#ead9af}
+.alertCard,.alertRow{border-color:#eee3c9!important;background:#fffdf7!important;color:#544a39!important}
+.intelPanel{background:linear-gradient(180deg,#fff,#fbfcff)}
+
+.modal{background:rgba(48,36,59,.28);backdrop-filter:blur(3px)}
+.modalCard{background:#fff;border-color:#d6c7e1;box-shadow:0 24px 70px rgba(46,31,58,.24)}
+.modalCard textarea{background:#fbf9fd;color:#332a3c;border-color:#dbd1e3}
+.toast{background:#fff;border-color:#d7cae2;color:#3d3049;box-shadow:0 14px 36px rgba(52,37,65,.18)}
+
+hr{border-color:#ece5f0!important}
+select option{background:#fff;color:#2f2836}
+
+@media(max-width:650px){
+  .top{position:static}
+  .panel{box-shadow:0 7px 18px rgba(70,49,90,.06)}
+}
