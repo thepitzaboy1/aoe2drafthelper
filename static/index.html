@@ -4,42 +4,78 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#100b18">
-<title>AoE2 Draft Assistant — Category Builder + Live Draft</title>
+<title>AoE2 Draft Assistant v3</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="top">
-  <div class="topin">
-    <div class="brand">AoE2 Draft Assistant <small>Category-first team drafting</small></div>
-    <div class="tabs">
-      <button class="tab active" data-tab="builder">Strategy Builder</button>
-      <button class="tab" data-tab="live">Live Draft</button>
-    </div>
-    <div class="room">
-      <span class="tiny">Room</span>
-      <input id="roomId" class="field" placeholder="team-room">
-      <button id="joinRoom" class="btn">Join</button>
-      <button id="copyRoom" class="btn ghost">Copy link</button>
-    </div>
-  </div>
-</div>
+<div class="top"><div class="topin">
+  <div class="brand">AoE2 Draft Assistant <small>Versioned strategy + map intelligence</small></div>
+  <div class="tabs"><button class="tab active" data-tab="builder">Strategy Builder</button><button class="tab" data-tab="live">Live Draft</button></div>
+  <div class="room"><span class="tiny">Room</span><input id="roomId" class="field" placeholder="team-room"><button id="joinRoom" class="btn">Join</button><button id="copyRoom" class="btn ghost">Copy link</button></div>
+</div></div>
+
 <div class="wrap">
-  <section id="builderView"><div class="builderGrid"><aside class="panel sidebar">
-    <div class="sectionTitle" style="padding:0 0 10px;border:0"><h2>Categories</h2><button id="newCatBtn" class="btn primary">+ Add</button></div>
-    <div class="tiny">Examples: Flank, Halb + SO, Paladin, Pocket, Cav Archer. A civ can appear in multiple categories.</div><div id="catList" class="catList"></div>
-    <hr style="border:0;border-top:1px solid #30203a;margin:15px 0"><div class="tiny">Team setup</div><div class="inline" style="margin-top:8px"><button id="exportBtn" class="btn">Export</button><button id="importBtn" class="btn">Import</button><button id="resetBtn" class="btn ghost">Reset</button></div>
-  </aside><main class="panel builderMain"><div class="catHero"><div class="catHeroTop"><div><h1 id="activeCatTitle">Category</h1><div class="desc">Within this category, left = strongest preference, right = weakest.</div></div><div class="inline"><button id="renameCatBtn" class="btn">Rename</button><button id="deleteCatBtn" class="btn danger">Delete</button></div></div></div>
-    <div class="rankedZone"><div class="rankHint">Drag civs here and reorder them. The same civ can be ranked independently in other categories.</div><div id="rankedList" class="rankedList"></div></div>
-    <div class="pool"><div class="poolHead"><div><b>Civilization pool</b><div class="tiny">Drag or click + to add to the current category.</div></div><input id="poolSearch" class="field" placeholder="Search civ"></div><div id="poolGrid" class="poolGrid"></div><div class="inline" style="margin-top:12px"><input id="customCiv" class="field" placeholder="Add a new/custom civ"><button id="addCustomCiv" class="btn">Add civ</button></div></div>
-  </main></div></section>
+  <section id="builderView">
+    <div class="panel strategyBar">
+      <div class="strategyBlock"><span class="tiny">STRATEGY</span><input id="strategyName" class="field" value="Team Strategy"></div>
+      <div class="strategyBlock grow"><span class="tiny">VERSION</span><div class="inline"><select id="versionSelect" class="field grow"></select><button id="newVersionBtn" class="btn primary">+ New version</button><button id="restoreVersionBtn" class="btn">Restore as new</button></div><div id="versionMeta" class="tiny"></div></div>
+      <div class="strategyBlock"><span class="tiny">VERSION ACTIONS</span><div class="inline"><button id="renameVersionBtn" class="btn">Rename</button><button id="describeVersionBtn" class="btn">Describe</button><button id="lockVersionBtn" class="btn">Lock</button><button id="deleteVersionBtn" class="btn danger">Delete</button></div></div>
+    </div>
+
+    <div class="panel mapBar">
+      <div><b>Map-specific strategy layer</b><div class="tiny">Base rankings apply everywhere. Choose a map to create only the overrides that differ.</div></div>
+      <div class="inline mapControls"><select id="builderMap" class="field"></select><span id="overrideStatus" class="pill">Base rankings</span><button id="resetMapOverrideBtn" class="btn ghost">Reset category override</button></div>
+    </div>
+
+    <div class="builderGrid">
+      <aside class="panel sidebar">
+        <div class="sectionTitle" style="padding:0 0 10px;border:0"><h2>Categories</h2><button id="newCatBtn" class="btn primary">+ Add</button></div>
+        <div class="tiny">Examples: Flank, Halb + SO, Paladin, Pocket, Cav Archer. A civ can appear in multiple categories.</div>
+        <div id="catList" class="catList"></div>
+        <hr style="border:0;border-top:1px solid #30203a;margin:15px 0">
+        <div class="tiny">Strategy backup</div><div class="inline" style="margin-top:8px"><button id="exportBtn" class="btn">Export</button><button id="importBtn" class="btn">Import</button><button id="resetBtn" class="btn ghost">Reset</button></div>
+      </aside>
+      <main class="panel builderMain">
+        <div class="catHero"><div class="catHeroTop"><div><h1 id="activeCatTitle">Category</h1><div id="catContext" class="desc">Within this category, left = strongest preference, right = weakest.</div></div><div class="inline"><button id="renameCatBtn" class="btn">Rename</button><button id="deleteCatBtn" class="btn danger">Delete</button></div></div></div>
+        <div class="rankedZone"><div class="rankHint">Drag civs here and reorder them. Editing a map automatically creates an override for this category.</div><div id="rankedList" class="rankedList"></div></div>
+        <div class="pool"><div class="poolHead"><div><b>Civilization pool</b><div class="tiny">Drag or click + to add to the current category.</div></div><input id="poolSearch" class="field" placeholder="Search civ"></div><div id="poolGrid" class="poolGrid"></div><div class="inline" style="margin-top:12px"><input id="customCiv" class="field" placeholder="Add a new/custom civ"><button id="addCustomCiv" class="btn">Add civ</button></div></div>
+      </main>
+    </div>
+  </section>
+
   <section id="liveView" class="hidden">
-    <div class="liveTop"><div class="panel syncPanel"><div class="syncRow"><div><div class="tiny">AoE2CM draft URL</div><input id="draftUrl" class="field" style="width:100%" value="https://aoe2cm.net/draft/OEoDI"></div><button id="syncDraftBtn" class="btn primary">Sync draft</button><select id="ourSide" class="field"><option value="host">We are Host</option><option value="guest">We are Guest</option></select></div><div class="statusline"><span class="pill"><span id="draftDot" class="dot"></span><span id="draftStatus">Manual mode ready</span></span><span class="pill"><span id="roomDot" class="dot"></span><span id="roomStatus">Local only</span></span><span id="players" class="tiny"></span></div></div>
-    <div class="panel needPanel"><b>Our needs</b><div class="tiny">Pick the capabilities you still need in this draft.</div><div id="needChips" class="chips"></div><div style="height:10px"></div><b>Opponent threats</b><div class="tiny">Select capabilities you want to deny.</div><div id="threatChips" class="chips"></div></div></div>
+    <div class="liveTop">
+      <div class="panel syncPanel">
+        <div class="syncRow">
+          <div><div class="tiny">AoE2CM draft URL</div><input id="draftUrl" class="field" style="width:100%" value="https://aoe2cm.net/draft/OEoDI"></div>
+          <button id="syncDraftBtn" class="btn primary">Sync draft</button><select id="ourSide" class="field"><option value="host">We are Host</option><option value="guest">We are Guest</option></select>
+        </div>
+        <div class="liveSelectors">
+          <div><span class="tiny">PINNED STRATEGY VERSION</span><select id="draftVersionSelect" class="field"></select></div>
+          <div><span class="tiny">MAP</span><select id="draftMap" class="field"></select></div>
+          <div><span class="tiny">PUBLIC STATS</span><button id="refreshStatsBtn" class="btn">Refresh map stats</button></div>
+        </div>
+        <div class="statusline"><span class="pill"><span id="draftDot" class="dot"></span><span id="draftStatus">Manual mode ready</span></span><span class="pill"><span id="roomDot" class="dot"></span><span id="roomStatus">Local only</span></span><span class="pill"><span id="statsDot" class="dot"></span><span id="statsStatus">Stats not loaded</span></span><span id="players" class="tiny"></span></div>
+      </div>
+      <div class="panel needPanel"><b>Our needs</b><div class="tiny">Pick the capabilities you still need in this draft.</div><div id="needChips" class="chips"></div><div style="height:10px"></div><b>Opponent threats</b><div class="tiny">Select capabilities you want to deny.</div><div id="threatChips" class="chips"></div></div>
+    </div>
+
+    <div id="scarcityPanel" class="panel alertsPanel"></div>
+
     <div class="recs"><div class="panel recPanel"><h3>Best next pick</h3><div id="pickRecs"></div></div><div class="panel recPanel"><h3>Best ban</h3><div id="banRecs"></div></div><div class="panel recPanel"><h3>Flexible / overlap value</h3><div id="flexRecs"></div></div></div>
-    <div class="panel matrix"><div class="sectionTitle" style="padding:0 0 8px;border:0"><h2>Capability matrix</h2><span class="tiny">A capability is secured if one of your drafted civs belongs to that category.</span></div><div style="overflow:auto"><table><thead><tr><th>Category</th><th>Status</th><th>Secured by</th><th>Best remaining</th></tr></thead><tbody id="matrixBody"></tbody></table></div></div>
+
+    <div class="panel intelPanel">
+      <div class="sectionTitle"><div><h2>Map Intelligence</h2><div id="mapIntelSubtitle" class="tiny"></div></div><div id="statsSource" class="tiny"></div></div>
+      <div style="overflow:auto"><table><thead><tr><th>Civ</th><th>Draft score</th><th>Team pref</th><th>Map signal</th><th>Coverage</th><th>Flex</th><th>Scarcity</th><th>Confidence</th></tr></thead><tbody id="intelBody"></tbody></table></div>
+    </div>
+
+    <div class="panel matrix"><div class="sectionTitle" style="padding:0 0 8px;border:0"><h2>Capability matrix</h2><span class="tiny">Secured uses the strategy version pinned to this draft and the selected map override.</span></div><div style="overflow:auto"><table><thead><tr><th>Category</th><th>Status</th><th>Secured by</th><th>Best remaining</th><th>Top-5 remaining</th></tr></thead><tbody id="matrixBody"></tbody></table></div></div>
+
     <div class="panel boardPanel"><div class="boardHead"><div><b>Draft board</b><div class="tiny">Click a civ to cycle Available → Our pick → Their pick → Banned.</div></div><div class="boardActions"><input id="boardSearch" class="field" placeholder="Search civ"><select id="boardFilter" class="field"><option value="all">All</option><option value="available">Available</option><option value="our">Our picks</option><option value="opp">Their picks</option><option value="ban">Banned</option></select><button id="clearDraftBtn" class="btn ghost">Clear marks</button></div></div><div id="boardGrid" class="boardGrid"></div></div>
   </section>
 </div>
-<div id="ioModal" class="modal hidden"><div class="modalCard"><h2 id="ioTitle">Import / Export</h2><div id="ioHelp" class="tiny" style="margin-bottom:8px"></div><textarea id="ioText"></textarea><div class="inline" style="justify-content:flex-end;margin-top:10px"><button id="ioClose" class="btn ghost">Close</button><button id="ioAction" class="btn primary">Apply</button></div></div></div><div id="toast" class="toast"></div>
-<script src="app.js"></script><script src="live.js"></script>
+
+<div id="ioModal" class="modal hidden"><div class="modalCard"><h2 id="ioTitle">Import / Export</h2><div id="ioHelp" class="tiny" style="margin-bottom:8px"></div><textarea id="ioText"></textarea><div class="inline" style="justify-content:flex-end;margin-top:10px"><button id="ioClose" class="btn ghost">Close</button><button id="ioAction" class="btn primary">Apply</button></div></div></div>
+<div id="toast" class="toast"></div>
+<script src="app.js"></script><script src="intelligence.js"></script><script src="live.js"></script>
 </body></html>
