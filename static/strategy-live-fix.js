@@ -263,3 +263,15 @@ $("#syncDraftBtn").onclick=()=>syncDraft(false);
 $("#ourSide").onchange=()=>{app.draft.ourSide=$("#ourSide").value;syncDraft(false)};
 $("#clearDraftBtn").onclick=clearDraft;
 renderAll();
+
+// Refresh restores authoritative state immediately and reconnects its live feed.
+function resumeDraftSync(){
+  if(app.draft.draftUrl&&app.draft.syncedDraftId&&!app.draftTimer&&!app.syncingDraft){
+    $('#draftDot').className='dot warn';
+    $('#draftStatus').textContent='Restored AoE2CM state · reconnecting…';
+    syncDraft(true);
+  }
+}
+const originalSetTab=setTab;
+setTab=function(name){originalSetTab(name);if(name==='live')resumeDraftSync()};
+resumeDraftSync();
