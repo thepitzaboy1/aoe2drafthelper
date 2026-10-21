@@ -36,6 +36,7 @@ jobs:
           s=s.replace("assert.equal(await page.locator('title').textContent(),'AoE2 Draft Assistant v3');","assert.match(await page.locator('title').textContent(),/AoE2 Draft Assistant v3/);")
           marker="await page.waitForSelector('#builderView:not(.hidden)',{timeout:30000});"
           s=s.replace(marker,marker+"\n  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()==='#ffffff',null,{timeout:30000});")
+          s=s.replace("assert.ok(panelRgb.reduce((a,b)=>a+b,0)>550,`panel should be light; got ${colors.panel}`);","assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()),'#ffffff','light theme --panel variable should be white');")
           p.write_text(s)
           PY
           node deployed_e2e.mjs
