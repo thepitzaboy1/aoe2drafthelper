@@ -17,7 +17,7 @@ STATIC=ROOT/"static"
 DATA_DIR=ROOT/"data"
 STORE_FILE=ROOT/"rooms.json"
 RF_STATS_FILE=DATA_DIR/"rage_forest_6_2026.json"
-LOCK=threading.Lock()
+LOCK=threading.RLock()
 DRAFT_LOCK=threading.Lock()
 DEFAULT_DRAFT="https://aoe2cm.net/draft/OEoDI"
 MAP_CACHE={}
@@ -252,7 +252,27 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             length=int(self.headers.get("Content-Length","0"));raw=self.rfile.read(min(length,6_000_000));payload=json.loads(raw.decode("utf-8"));room=clean_room(payload.get("room"));data=payload.get("data") or {}
             if not isinstance(data,dict):raise ValueError("data must be an object")
-            current=load_store();prev=current.get(room,{});data["rev"]=max(int(data.get("rev") or 0),int(prev.get("rev") or 0)+1);data["updatedAt"]=int(time.time()*1000);current[room]=data;save_store(current);return self.send_json({"ok":True,"room":room,"data":data})
+            with LOCK:
+                current=load_store();prev=current.get(room,{})
+                if "patches" in payload:
+                    data=json.loads(json.dumps(prev))
+                    for patch in payload["patches"]:
+                        path=patch.get("path",[])
+                        if not path or path[0] not in ("strategy","draft") or any(not isinstance(k,str) or k in ("__proto__","constructor","prototype") for k in path):
+                            raise ValueError("Invalid room patch")
+                        target=data
+                        for key in path[:-1]:
+                            if not isinstance(target.get(key),dict):target[key]={}
+                            target=target[key]
+                        key=path[-1];old=target.get(key)
+                        if old!=patch.get("before") and old!=patch.get("value"):
+                            return self.send_json({"ok":False,"conflict":True,"error":"Shared field changed; reload and retry"},409)
+                        if patch.get("remove"):target.pop(key,None)
+                        else:target[key]=patch.get("value")
+                data["rev"]=int(prev.get("rev") or 0)+1
+                data["updatedAt"]=max(int(time.time()*1000),int(prev.get("updatedAt") or 0)+1)
+                current[room]=data;save_store(current)
+            return self.send_json({"ok":True,"room":room,"data":data})
         except Exception as e:return self.send_json({"ok":False,"error":str(e)},400)
 
 def main():

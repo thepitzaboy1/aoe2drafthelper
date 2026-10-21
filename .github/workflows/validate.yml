@@ -27,3 +27,10 @@ jobs:
           node --check static/live.js
       - name: End-to-end draft smoke test
         run: python smoke_test.py
+
+      - name: Install backend test dependencies
+        run: pip install -r requirements.txt
+      - name: Draft and room regressions
+        run: |
+          python regression_test.py
+          node engine_regression_test.mjs

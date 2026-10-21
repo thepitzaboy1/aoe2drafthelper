@@ -18,7 +18,7 @@ import socketio
 
 import server as base
 
-VERSION = 3.3
+VERSION = 3.4
 SOCKET_WAIT_SECONDS = 6.0
 base.VERSION = VERSION
 base.Handler.server_version = f"AoE2DraftAssistant/{VERSION}"
@@ -93,7 +93,7 @@ def fetch_live_socket_snapshot(draft_id):
 def get_draft_proxy(draft_id):
     """REST first, live Socket.IO second, then last-known-good cache."""
     now = time.time()
-    key = draft_id.lower()
+    key = draft_id
 
     with base.DRAFT_LOCK:
         cached = base.DRAFT_CACHE.get(key)
@@ -166,7 +166,7 @@ def get_draft_proxy(draft_id):
             items = base.fetch_json_retry("https://aoe2cm.net/api/recentdrafts", timeout=10, attempts=2)
             if isinstance(items, list):
                 recent = next(
-                    (x for x in items if str(x.get("draftId", "")).lower() == key),
+                    (x for x in items if str(x.get("draftId", "")) == key),
                     None,
                 )
         except Exception:

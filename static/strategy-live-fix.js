@@ -1,19 +1,19 @@
 // Strategy-first live draft engine.
 // v3.2: AoE2CM is authoritative for bans/picks; pick recommendations come only
 // from the pinned team strategy (including its selected-map overrides).
-window.STRATEGY_LIVE_FIX_VERSION="3.2";
+window.STRATEGY_LIVE_FIX_VERSION="3.4";
 
 app.autoDraftMeta=app.autoDraftMeta||null;
 
 function emptyDraftMeta(){return{eventCount:0,adminBans:[],hostBans:[],guestBans:[],otherBans:[],hostPicks:[],guestPicks:[],ourPicks:[],oppPicks:[],unknownPicks:[]}}
 function uniq(xs){return[...new Set((xs||[]).filter(Boolean))]}
 function syncedStatuses(){return app.draft?.syncedStatuses||{}}
-function syncedMeta(){return app.autoDraftMeta||app.draft?.syncedMeta||null}
+function syncedMeta(){return app.draft?.syncedMeta||null}
 
 // AoE2CM is authoritative whenever it knows a civ's state. Manual marks are a
 // fallback for drafts that are not synced and can never accidentally un-ban an
 // admin-banned civilization.
-function statusOf(civ){const key=norm(civ);return app.autoStatuses[key]||syncedStatuses()[key]||app.draft.statuses[key]||"available"}
+function statusOf(civ){const key=norm(civ);return syncedStatuses()[key]||app.draft.statuses[key]||"available"}
 
 function inferDraftActor(o){
   for(const k of["executingPlayer","player","actor","participant","side","team","user","owner","drafter"]){
@@ -40,7 +40,7 @@ function persistSyncedDraft(auto,meta,extra={}){
   if(previous!==next&&app.room&&typeof pushRoom==="function")pushRoom();
 }
 
-function parseDraftObject(root){
+function parseDraftObject(root,extra={}){
   const events=[],seen=new Set();
   function walk(v){
     if(v==null)return;
@@ -81,7 +81,7 @@ function parseDraftObject(root){
     if(st==="our")meta.ourPicks.push(e.choice);else meta.oppPicks.push(e.choice);
   }
   for(const k of Object.keys(meta))if(Array.isArray(meta[k]))meta[k]=uniq(meta[k]);
-  persistSyncedDraft(auto,meta,{ourSide:ours});
+  persistSyncedDraft(auto,meta,{...extra,ourSide:ours});
   renderLive();
   return events.length;
 }
@@ -99,36 +99,46 @@ function renderDraftSourceSummary(){
   el.innerHTML=`<b>AoE2CM state:</b> ${esc(draftSummaryText(meta))}${names.length?`<span class="draftSummaryBans">Admin banned: ${esc(names.join(", "))}${more>0?` +${more} more`:""}</span>`:""}`;
 }
 
+let draftRequest=0;
 async function syncDraft(silent=false){
+  if(silent&&app.syncingDraft)return;
+  const request=++draftRequest;
+  clearInterval(app.draftTimer);
+  app.syncingDraft=true;
   const url=$("#draftUrl").value.trim();
-  if(!url)return toast("Enter an AoE2CM draft URL.");
+  if(!url){app.syncingDraft=false;return toast("Enter an AoE2CM draft URL.");}
   const ours=$("#ourSide").value||"host";
+  let success=false;
   if(!silent){$("#draftDot").className="dot warn";$("#draftStatus").textContent="Syncing AoE2CM…";}
   try{
     const j=await(await fetch('/api/draft?url='+encodeURIComponent(url),{cache:'no-store'})).json();
+    if(request!==draftRequest)return;
     if(j.ok){
-      const n=parseDraftObject(j.data);
+      success=true;
+      const n=parseDraftObject(j.data,{draftUrl:url,syncedDraftId:j.draftId||""});
       app.draft.draftUrl=url;app.draft.syncedDraftId=j.draftId||"";app.draft.ourSide=ours;saveLocal();
       const meta=syncedMeta()||emptyDraftMeta();
       $("#draftDot").className="dot ok";
-      $("#draftStatus").textContent=`AoE2CM live · ${n} actions · ${meta.adminBans.length} admin bans`;
+      $("#draftStatus").textContent=`AoE2CM ${j.stale?"cached (stale)":j.mode?.includes("replay")||j.data?.finished?"replay":"synced"} · ${n} actions · ${meta.adminBans.length} admin bans`;
       const h=j.data?.nameHost||j.data?.host?.name||'',g=j.data?.nameGuest||j.data?.guest?.name||'';
       if(h||g)$("#players").textContent=`Host: ${typeof h==='object'?h.name||'':h} · Guest: ${typeof g==='object'?g.name||'':g}`;
       clearInterval(app.draftTimer);
-      app.draftTimer=setInterval(()=>{if(app.tab==="live")syncDraft(true)},5000);
+
       renderLive();
       return;
     }
     const same=url===(app.draft.draftUrl||"");
-    if(!same){app.autoStatuses={};app.autoDraftMeta=null;app.draft.syncedStatuses={};app.draft.syncedMeta=null;app.draft.draftUrl=url;saveLocal();}
+    if(!same){persistSyncedDraft({},null,{draftUrl:url,syncedDraftId:""});}
+    $("#players").textContent="";
     renderLive();
     $("#draftDot").className="dot warn";
-    $("#draftStatus").textContent=(j.ongoing?"AoE2CM API unavailable · keeping manual board":"Draft actions unavailable · manual board fallback")+(same&&Object.keys(syncedStatuses()).length?" · last synced state retained":"");
+    $("#draftStatus").textContent=(j.error?.includes("Could not find")?"Invalid AoE2CM draft URL · manual board fallback":j.ongoing?"AoE2CM API unavailable · keeping manual board":"Draft actions unavailable · manual board fallback")+(same&&Object.keys(syncedStatuses()).length?" · last synced state retained":"");
     if(j.recent)$("#players").textContent=`Host: ${j.recent.nameHost||'?'} · Guest: ${j.recent.nameGuest||'?'}`;
   }catch(e){
+    if(request!==draftRequest)return;
     $("#draftDot").className="dot bad";
     $("#draftStatus").textContent=Object.keys(syncedStatuses()).length?"Live sync retry failed · last synced state retained":"Draft sync failed · manual mode";
-  }
+  }finally{if(request===draftRequest){app.syncingDraft=false;if(app.draft.draftUrl===url&&(success||Object.keys(syncedStatuses()).length))app.draftTimer=setInterval(()=>{if(app.tab==="live")syncDraft(true)},5000);}}
 }
 
 function rankedStrategyCategories(){return liveCategories().filter(c=>liveRankingFor(c).length>0)}
@@ -225,7 +235,7 @@ function renderBoard(){
   $$("#boardGrid .civ").forEach(el=>el.onclick=()=>cycleStatus(el.dataset.civ));
 }
 function cycleStatus(civ){
-  const key=norm(civ);if(app.autoStatuses[key]||syncedStatuses()[key])return toast("This state comes from AoE2CM and is authoritative.");
+  const key=norm(civ);if(syncedStatuses()[key])return toast("This state comes from AoE2CM and is authoritative.");
   const seq=["available","our","opp","ban"],cur=app.draft.statuses[key]||"available";app.draft.statuses[key]=seq[(seq.indexOf(cur)+1)%seq.length];changed();
 }
 function clearDraft(){

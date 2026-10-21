@@ -12,12 +12,12 @@ async function waitForDeploy(){
     try{
       const [asset,home,config]=await Promise.all([fetch(BASE+'/strategy-live-fix.js',{cache:'no-store'}),fetch(BASE+'/',{cache:'no-store'}),json('/api/config')]);
       const [a,h]=await Promise.all([asset.text(),home.text()]);
-      if(asset.status===200&&a.includes('STRATEGY_LIVE_FIX_VERSION="3.2"')&&h.includes('strategy-live-fix.js')&&h.includes('AoE2 Draft Assistant v3.2')&&config.status===200&&Number(config.body.version)>=3.2)return;
-      last=`asset=${asset.status}, marker=${a.includes('STRATEGY_LIVE_FIX_VERSION="3.2"')}, html=${h.includes('AoE2 Draft Assistant v3.2')}, api=${config.body?.version}`;
+      if(asset.status===200&&a.includes('STRATEGY_LIVE_FIX_VERSION="3.4"')&&h.includes('strategy-live-fix.js')&&h.includes('AoE2 Draft Assistant v3.4')&&config.status===200&&Number(config.body.version)>=3.4)return;
+      last=`asset=${asset.status}, marker=${a.includes('STRATEGY_LIVE_FIX_VERSION="3.4"')}, html=${h.includes('AoE2 Draft Assistant v3.4')}, api=${config.body?.version}`;
     }catch(e){last=e.message}
     await sleep(5000);
   }
-  throw new Error('v3.2 front/back end did not deploy: '+last);
+  throw new Error('v3.4 front/back end did not deploy: '+last);
 }
 async function liveDraft(path,attempts=6){
   let last;
@@ -74,7 +74,7 @@ async function main(){
   await page.goto(BASE+'/?room='+encodeURIComponent(room),{waitUntil:'domcontentloaded',timeout:90000});
   await page.waitForFunction(()=>document.querySelector('#roomStatus')?.textContent.includes('connected'),null,{timeout:20000});
   await page.click('.tab[data-tab="live"]');await page.waitForSelector('#liveView:not(.hidden)');
-  assert.match(await page.title(),/v3\.2/);
+  assert.match(await page.title(),/v3\.4/);
   assert.equal(await page.locator('#draftMap').inputValue(),'Rage Forest');
   assert.match(await page.locator('#strategyPlanStatus').innerText(),/2 open \/ 2 ranked categories/i);
 
@@ -146,7 +146,7 @@ async function main(){
   await page.fill('#draftUrl','https://aoe2cm.net/draft/OEoDI');
   await page.selectOption('#ourSide','host');
   await page.click('#syncDraftBtn');
-  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM live'),null,{timeout:60000});
+  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM synced'),null,{timeout:60000});
   assert.match(await page.locator('#draftStatus').innerText(),/27 admin bans/);
   assert.match(await page.locator('#draftSourceSummary').innerText(),/27 admin bans · 4 player bans · 12 our picks · 12 their picks/i);
   const adminCiv=choice(admin[0]),hostPick=choice(hostPicks[0]),guestPick=choice(guestPicks[0]),playerBan=choice(hostBans[0]);
@@ -157,7 +157,7 @@ async function main(){
 
   // Flip perspective: real draft picks must invert correctly while bans stay bans.
   await page.selectOption('#ourSide','guest');
-  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM live'),null,{timeout:60000});
+  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM synced'),null,{timeout:60000});
   await page.waitForFunction((c)=>document.querySelector(`#boardGrid .civ[data-civ="${c}"]`)?.textContent.includes('THEIR PICK'),hostPick,{timeout:15000});
   assert.match(await page.locator(`#boardGrid .civ[data-civ="${hostPick}"]`).innerText(),/THEIR PICK/);
   assert.match(await page.locator(`#boardGrid .civ[data-civ="${guestPick}"]`).innerText(),/OUR PICK/);
