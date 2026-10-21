@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: aoe2-draft-assistant
+    runtime: python
+    plan: free
+    buildCommand: echo "No build step"
+    startCommand: python server.py --no-browser
+    healthCheckPath: /
