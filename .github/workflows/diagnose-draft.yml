@@ -9,25 +9,25 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect deployed AoE2CM proxy payload shape
+      - name: Inspect deployed AoE2CM event attribution
         run: |
           python3 - <<'PY'
           import json, urllib.parse, urllib.request
+          from collections import Counter
           url='https://aoe2-draft-assistant.onrender.com/api/draft?url='+urllib.parse.quote('https://aoe2cm.net/draft/OEoDI', safe='')
           with urllib.request.urlopen(url, timeout=30) as r:
               d=json.load(r)
-          print('mode=',d.get('mode'),'draftId=',d.get('draftId'))
-          x=d.get('data')
-          print('type=',type(x).__name__)
-          if isinstance(x,dict):
-              print('top-level keys=',sorted(x.keys()))
-              for k,v in x.items():
-                  if isinstance(v,list):
-                      print(k,'list len=',len(v),'sample=',json.dumps(v[:2],ensure_ascii=False)[:3000])
-                  elif isinstance(v,dict):
-                      print(k,'dict keys=',list(v.keys())[:30],'sample=',json.dumps(v,ensure_ascii=False)[:3000])
-                  else:
-                      print(k,'=',repr(v)[:500])
-          else:
-              print(json.dumps(x,ensure_ascii=False)[:10000])
+          x=d.get('data') or {}
+          events=x.get('events') or []
+          print('mode=',d.get('mode'),'draftId=',d.get('draftId'),'events=',len(events))
+          print('host=',x.get('nameHost'),'guest=',x.get('nameGuest'))
+          print('attribution counts:')
+          counts=Counter((str(e.get('actionType')),str(e.get('player')),str(e.get('executingPlayer'))) for e in events)
+          for k,v in sorted(counts.items()): print(v,k)
+          print('pick samples:')
+          for e in [e for e in events if str(e.get('actionType','')).lower() in ('pick','steal')][:20]:
+              print(json.dumps({k:e.get(k) for k in ('actionType','player','executingPlayer','chosenOptionId','turnId')},ensure_ascii=False))
+          print('ban samples:')
+          for e in [e for e in events if str(e.get('actionType','')).lower() in ('ban','snipe')][:12]:
+              print(json.dumps({k:e.get(k) for k in ('actionType','player','executingPlayer','chosenOptionId','turnId')},ensure_ascii=False))
           PY
