@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f6f4fb">
-<title>AoE2 Draft Assistant v3</title>
+<title>AoE2 Draft Assistant v3.1</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="light.css">
 </head>
 <body>
 <div class="top"><div class="topin">
-  <div class="brand">AoE2 Draft Assistant <small>Versioned strategy + map intelligence</small></div>
+  <div class="brand">AoE2 Draft Assistant <small>Versioned strategy + Rage Forest intelligence</small></div>
   <div class="tabs"><button class="tab active" data-tab="builder">Strategy Builder</button><button class="tab" data-tab="live">Live Draft</button></div>
   <div class="room"><span class="tiny">Room</span><input id="roomId" class="field" placeholder="team-room"><button id="joinRoom" class="btn">Join</button><button id="copyRoom" class="btn ghost">Copy link</button></div>
 </div></div>
@@ -24,7 +24,7 @@
     </div>
 
     <div class="panel mapBar">
-      <div><b>Map-specific strategy layer</b><div class="tiny">Base rankings apply everywhere. Choose a map to create only the overrides that differ.</div></div>
+      <div><b>Map-specific strategy layer</b><div class="tiny">Rage Forest opens by default. Base rankings still apply everywhere unless a map override exists.</div></div>
       <div class="inline mapControls"><select id="builderMap" class="field"></select><span id="overrideStatus" class="pill">Base rankings</span><button id="resetMapOverrideBtn" class="btn ghost">Reset category override</button></div>
     </div>
 
@@ -33,7 +33,7 @@
         <div class="sectionTitle" style="padding:0 0 10px;border:0"><h2>Categories</h2><button id="newCatBtn" class="btn primary">+ Add</button></div>
         <div class="tiny">Examples: Flank, Halb + SO, Paladin, Pocket, Cav Archer. A civ can appear in multiple categories.</div>
         <div id="catList" class="catList"></div>
-        <hr style="border:0;border-top:1px solid #30203a;margin:15px 0">
+        <hr style="border:0;border-top:1px solid #dfe3ec;margin:15px 0">
         <div class="tiny">Strategy backup</div><div class="inline" style="margin-top:8px"><button id="exportBtn" class="btn">Export</button><button id="importBtn" class="btn">Import</button><button id="resetBtn" class="btn ghost">Reset</button></div>
       </aside>
       <main class="panel builderMain">
@@ -54,7 +54,7 @@
         <div class="liveSelectors">
           <div><span class="tiny">PINNED STRATEGY VERSION</span><select id="draftVersionSelect" class="field"></select></div>
           <div><span class="tiny">MAP</span><select id="draftMap" class="field"></select></div>
-          <div><span class="tiny">PUBLIC STATS</span><button id="refreshStatsBtn" class="btn">Refresh map stats</button></div>
+          <div><span class="tiny">MAP STATS</span><button id="refreshStatsBtn" class="btn">Refresh map stats</button></div>
         </div>
         <div class="statusline"><span class="pill"><span id="draftDot" class="dot"></span><span id="draftStatus">Manual mode ready</span></span><span class="pill"><span id="roomDot" class="dot"></span><span id="roomStatus">Local only</span></span><span class="pill"><span id="statsDot" class="dot"></span><span id="statsStatus">Stats not loaded</span></span><span id="players" class="tiny"></span></div>
       </div>
@@ -78,5 +78,12 @@
 
 <div id="ioModal" class="modal hidden"><div class="modalCard"><h2 id="ioTitle">Import / Export</h2><div id="ioHelp" class="tiny" style="margin-bottom:8px"></div><textarea id="ioText"></textarea><div class="inline" style="justify-content:flex-end;margin-top:10px"><button id="ioClose" class="btn ghost">Close</button><button id="ioAction" class="btn primary">Apply</button></div></div></div>
 <div id="toast" class="toast"></div>
-<script src="app.js"></script><script src="intelligence.js"></script><script src="live.js"></script>
+<script src="app.js"></script>
+<script>
+  // Rage Forest is the primary tournament workflow. Keep Base available, but
+  // open the builder on RF and use RF as the default live map for new users.
+  app.builderMap='Rage Forest';
+  if(!localStorage.getItem('aoe2draft-v3')) app.draft.selectedMap='Rage Forest';
+</script>
+<script src="intelligence.js"></script><script src="live.js"></script>
 </body></html>
