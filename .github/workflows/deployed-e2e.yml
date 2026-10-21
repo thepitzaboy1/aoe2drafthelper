@@ -27,4 +27,5 @@ jobs:
           TARGET_URL: https://aoe2-draft-assistant.onrender.com
         run: |
           sed -i "s/assert.equal(await page.locator('title').textContent(),'AoE2 Draft Assistant v3');/assert.match(await page.locator('title').textContent(),\/AoE2 Draft Assistant v3\/);/" deployed_e2e.mjs
+          sed -i "/await page.waitForSelector('#builderView:not(.hidden)'/a\\  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()==='#ffffff',null,{timeout:30000});" deployed_e2e.mjs
           node deployed_e2e.mjs
