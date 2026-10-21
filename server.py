@@ -11,6 +11,9 @@ import webbrowser
 from html.parser import HTMLParser
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+from shared_store import StrategyStore, Conflict
+
+STRATEGY_STORE = StrategyStore()
 
 ROOT=Path(__file__).resolve().parent
 STATIC=ROOT/"static"
@@ -234,6 +237,12 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed=urllib.parse.urlparse(self.path);qs=urllib.parse.parse_qs(parsed.query)
         if parsed.path=="/api/config":return self.send_json({"defaultDraftUrl":DEFAULT_DRAFT,"version":VERSION})
+        if parsed.path in ('/api/strategy', '/api/strategy/history'):
+            try:
+                data = STRATEGY_STORE.history() if parsed.path.endswith('/history') else STRATEGY_STORE.read()
+                return self.send_json({'ok': True, 'data': data})
+            except Exception:
+                return self.send_json({'ok': False, 'error': 'Shared strategy storage is unavailable. Your saved library has not been replaced.'}, 503)
         if parsed.path=="/api/room":
             room=clean_room((qs.get("room") or ["default"])[0]);store=load_store();return self.send_json({"ok":True,"room":room,"data":store.get(room,{})})
         if parsed.path=="/api/mapstats":
@@ -248,6 +257,19 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
     def do_POST(self):
         parsed=urllib.parse.urlparse(self.path)
+        if parsed.path == '/api/strategy':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+                if length <= 0 or length > 6_000_000:
+                    return self.send_json({'ok': False, 'error': 'Invalid request size'}, 413)
+                payload = json.loads(self.rfile.read(length))
+                return self.send_json({'ok': True, 'data': STRATEGY_STORE.update(payload.get('patches'))})
+            except Conflict as exc:
+                return self.send_json({'ok': False, 'conflict': True, 'error': str(exc)}, 409)
+            except (ValueError, TypeError, AttributeError) as exc:
+                return self.send_json({'ok': False, 'error': str(exc)}, 400)
+            except Exception:
+                return self.send_json({'ok': False, 'error': 'Strategy save failed. Changes are queued for retry.'}, 503)
         if parsed.path!="/api/room":return self.send_json({"ok":False,"error":"Not found"},404)
         try:
             length=int(self.headers.get("Content-Length","0"));raw=self.rfile.read(min(length,6_000_000));payload=json.loads(raw.decode("utf-8"));room=clean_room(payload.get("room"));data=payload.get("data") or {}

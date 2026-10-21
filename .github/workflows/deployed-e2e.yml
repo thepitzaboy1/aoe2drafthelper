@@ -1,48 +1,21 @@
+# Automatic collaboration tests now run in shared-strategy.yml against a disposable database.
 name: deployed-e2e
-
 on:
-  push:
-    branches: [main]
-    paths:
-      - deployed_e2e.mjs
-      - .github/workflows/deployed-e2e.yml
   workflow_dispatch:
-
 jobs:
-  render-browser-e2e:
+  browser-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Playwright
-        run: |
-          npm init -y >/dev/null 2>&1
+      - run: pip install -r requirements.txt
+      - run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
-      - name: Wait for Render and run deployed E2E
-        env:
-          TARGET_URL: https://aoe2-draft-assistant.onrender.com
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path('deployed_e2e.mjs')
-          s=p.read_text()
-          old='''async function fetchJson(path, opts={}){\n  const r=await fetch(BASE+path,opts);\n  let body;\n  try{body=await r.json()}catch{body={raw:await r.text()}}\n  return {status:r.status,body,headers:r.headers};\n}'''
-          new='''async function fetchJson(path, opts={}){\n  const r=await fetch(BASE+path,opts);\n  const raw=await r.text();\n  let body;\n  try{body=JSON.parse(raw)}catch{body={raw}}\n  return {status:r.status,body,headers:r.headers};\n}'''
-          s=s.replace(old,new)
-          s=s.replace("if(status===200 && Number(body.version)>=3.1) return body;","if(status===200 && Number(body.version)>=3.1){ const a=await fetch(BASE+'/aoe2cm-fix.js',{cache:'no-store'}); if(a.status===200) return body; }")
-          s=s.replace("for(const asset of ['/style.css','/light.css','/app.js','/intelligence.js','/live.js'])","for(const asset of ['/style.css','/light.css','/app.js','/intelligence.js','/live.js','/aoe2cm-fix.js'])")
-          s=s.replace("assert.equal(await page.locator('title').textContent(),'AoE2 Draft Assistant v3');","assert.match(await page.locator('title').textContent(),/AoE2 Draft Assistant v3/);")
-          marker="await page.waitForSelector('#builderView:not(.hidden)',{timeout:30000});"
-          s=s.replace(marker,marker+"\n  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()==='#ffffff',null,{timeout:30000});")
-          s=s.replace("assert.ok(panelRgb.reduce((a,b)=>a+b,0)>550,`panel should be light; got ${colors.panel}`);","assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()),'#ffffff','light theme --panel variable should be white');")
-          s=re.sub(r"  await page\.locator\('#rankedList \.rankCard\[data-civ=\\?\"Celts\\?\"\]'\)\.dragTo\(page\.locator\('#rankedList \.rankCard\[data-civ=\\?\"Bohemians\\?\"\]'\)\);", "  await page.evaluate(()=>moveWithinActive('Celts','Bohemians'));", s)
-          needle="report.browser.aoe2cmStatus=await page2.locator('#draftStatus').innerText();"
-          s=s.replace(needle,needle+"\n  assert.doesNotMatch(report.browser.aoe2cmStatus,/synced · 0 actions/i,'AoE2CM payload should produce actual pick/ban events');")
-          p.write_text(s)
-          PY
-          node deployed_e2e.mjs
+      - run: node shared_browser_e2e.mjs
