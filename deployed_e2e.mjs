@@ -63,7 +63,8 @@ async function main(){
 
   const draft=await fetchJson('/api/draft?url='+encodeURIComponent('https://aoe2cm.net/draft/OEoDI'));
   assert.equal(draft.status,200); assert.equal(draft.body.draftId,'OEoDI');
-  assert.ok(['draft-api','manual-live-fallback'].includes(draft.body.mode));
+  assert.equal(draft.body.ok,true);
+  assert.match(draft.body.mode,/^draft-(api|live-socket|socket-replay)/);
   report.api.aoe2cm=draft.body.mode;
 
   const badDraft=await fetchJson('/api/draft?url='+encodeURIComponent('***'));
@@ -133,6 +134,14 @@ async function main(){
   assert.equal(await page.locator('#newCatBtn').isDisabled(),true,'locked strategy should disable category edits');
   await page.click('#lockVersionBtn');
   assert.equal(await page.locator('#newCatBtn').isDisabled(),false);
+  page.once('dialog',d=>d.accept('CI tournament'));
+  await page.click('#renameVersionBtn');
+  page.once('dialog',d=>d.accept('Regression tournament notes'));
+  await page.click('#describeVersionBtn');
+  assert.match(await page.locator('#versionMeta').innerText(),/Regression tournament notes/);
+  page.once('dialog',d=>d.accept('CI restored'));
+  await page.click('#restoreVersionBtn');
+  assert.match(await page.locator('#versionSelect option:checked').innerText(),/CI restored/);
   report.browser.versioning='PASS';
 
   // Shared room: browser 1 joins and browser 2 independently receives state.
