@@ -1,0 +1,33 @@
+name: diagnose-draft
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/diagnose-draft.yml
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect deployed AoE2CM proxy payload shape
+        run: |
+          python3 - <<'PY'
+          import json, urllib.parse, urllib.request
+          url='https://aoe2-draft-assistant.onrender.com/api/draft?url='+urllib.parse.quote('https://aoe2cm.net/draft/OEoDI', safe='')
+          with urllib.request.urlopen(url, timeout=30) as r:
+              d=json.load(r)
+          print('mode=',d.get('mode'),'draftId=',d.get('draftId'))
+          x=d.get('data')
+          print('type=',type(x).__name__)
+          if isinstance(x,dict):
+              print('top-level keys=',sorted(x.keys()))
+              for k,v in x.items():
+                  if isinstance(v,list):
+                      print(k,'list len=',len(v),'sample=',json.dumps(v[:2],ensure_ascii=False)[:3000])
+                  elif isinstance(v,dict):
+                      print(k,'dict keys=',list(v.keys())[:30],'sample=',json.dumps(v,ensure_ascii=False)[:3000])
+                  else:
+                      print(k,'=',repr(v)[:500])
+          else:
+              print(json.dumps(x,ensure_ascii=False)[:10000])
+          PY
