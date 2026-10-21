@@ -14,14 +14,16 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
 STATIC=ROOT/"static"
+DATA_DIR=ROOT/"data"
 STORE_FILE=ROOT/"rooms.json"
+RF_STATS_FILE=DATA_DIR/"rage_forest_6_2026.json"
 LOCK=threading.Lock()
 DEFAULT_DRAFT="https://aoe2cm.net/draft/OEoDI"
 MAP_CACHE={}
 CACHE_SECONDS=15*60
 
 CIVS={"armenians","aztecs","bengalis","berbers","bohemians","britons","bulgarians","burgundians","burmese","byzantines","celts","chinese","cumans","danes","dravidians","ethiopians","franks","georgians","goths","gurjaras","hindustanis","huns","incas","italians","japanese","jurchens","khitans","khmer","koreans","lithuanians","magyars","malay","malians","mapuche","mayans","mongols","muisca","persians","poles","portuguese","romans","saracens","saxons","shu","sicilians","slavs","spanish","tatars","teutons","tupi","turks","varangians","vietnamese","vikings","wei","wu"}
-ALIASES={"maya":"Mayans"}
+ALIASES={"maya":"Mayans","inca":"Incas"}
 SEED_STATS={
  "Arabia":[("Romans",8717,55.8),("Armenians",6371,53.2),("Bulgarians",10265,53.2),("Hindustanis",9078,53.0),("Vikings",10160,53.0),("Franks",29971,52.5),("Malians",6938,52.5),("Sicilians",8008,52.4),("Mayans",10859,52.3),("Persians",17770,52.2),("Mongols",31630,52.1),("Huns",11067,52.0),("Ethiopians",14894,51.9),("Japanese",14251,51.7)],
  "Arena":[("Turks",12230,58.5),("Malay",2924,55.4),("Malians",2338,54.9),("Poles",4627,54.0),("Italians",3967,54.0),("Khmer",8422,53.8),("Cumans",4032,53.7),("Hindustanis",2864,53.4),("Bohemians",9720,53.2)]
@@ -44,7 +46,7 @@ def clean_room(value):
     return room or "default"
 
 def fetch_bytes(url,timeout=18):
-    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 AoE2DraftAssistant/3.0","Accept":"text/html,application/json,*/*"})
+    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 AoE2DraftAssistant/3.1","Accept":"text/html,application/json,*/*"})
     with urllib.request.urlopen(req,timeout=timeout) as r:return r.read(),r.headers.get("Content-Type","")
 
 def fetch_json(url,timeout=15):
@@ -64,6 +66,53 @@ def canonical_civ(s):
     if key in ALIASES:return ALIASES[key]
     if key in CIVS:return next((c.title() for c in CIVS if c==key),raw)
     return None
+
+def get_rage_forest_stats():
+    if not RF_STATS_FILE.exists():
+        raise RuntimeError("Rage Forest dataset is missing")
+    data=json.loads(RF_STATS_FILE.read_text(encoding="utf-8"))
+    prior_games=12.0
+    appearances=max(1,int(data.get("civilizationAppearances") or 1))
+    rows=[]
+    for item in data.get("rows",[]):
+        wins=float(item.get("wins") or 0)
+        losses=float(item.get("losses") or 0)
+        total=int(item.get("total") or (wins+losses))
+        raw=float(item.get("winRate") if item.get("winRate") is not None else (100*wins/max(1,total)))
+        adjusted=100*((wins+prior_games*.5)/(total+prior_games))
+        rows.append({
+            "civ":item.get("civ"),
+            "wins":int(wins),
+            "losses":int(losses),
+            "games":total,
+            "winRate":round(raw,1),
+            "adjustedWinRate":round(adjusted,1),
+            "usageShare":round(100*total/appearances,2),
+            "dataset":"rf6-2026",
+            "scope":"4v4-tournament",
+            "sampleType":"civ appearances"
+        })
+    return {
+        "ok":True,
+        "rows":rows,
+        "source":"rage-forest-6",
+        "sourceLabel":"Rage Forest 6 · 4v4 tournament · 127 games · Jul–Aug 2026",
+        "sourceUrl":data.get("sourceUrl"),
+        "fetchedAt":int(time.time()*1000),
+        "fallback":False,
+        "datasetMeta":{
+            "title":data.get("title"),
+            "tournament":data.get("tournament"),
+            "format":data.get("format"),
+            "underlyingMap":data.get("underlyingMap"),
+            "matches":data.get("matches"),
+            "civilizationAppearances":data.get("civilizationAppearances"),
+            "startDate":data.get("startDate"),
+            "endDate":data.get("endDate"),
+            "notes":data.get("notes"),
+            "shrinkagePriorGames":int(prior_games)
+        }
+    }
 
 class TableParser(HTMLParser):
     def __init__(self):
@@ -106,12 +155,14 @@ def parse_map_stats(html):
                 elif games is None:
                     m=re.fullmatch(r"[\d,]+",cell.strip())
                     if m:games=int(cell.replace(",",""))
-            if wr is not None:parsed.append({"civ":civ,"games":games or 0,"winRate":wr})
+            if wr is not None:parsed.append({"civ":civ,"games":games or 0,"winRate":wr,"scope":"1v1-ranked"})
         score=len(parsed)+(30 if "map performance" in table["heading"].lower() else 0)+(5 if parsed and sum(len(r) for r in table["rows"])/max(1,len(table["rows"]))<=3.5 else 0)
         if len(parsed)>=5 and score>best_score:best_score=score;best=parsed
     return best or []
 
 def get_map_stats(map_name):
+    if nkey(map_name)=="rageforest":
+        return get_rage_forest_stats()
     now=time.time();cached=MAP_CACHE.get(map_name)
     if cached and now-cached["time"]<CACHE_SECONDS:return cached["payload"]
     url="https://aoe2ladder.com/statistics?"+urllib.parse.urlencode({"map":map_name})
@@ -122,12 +173,12 @@ def get_map_stats(map_name):
     except Exception as e:
         seed=SEED_STATS.get(map_name,[])
         if not seed:raise RuntimeError(str(e))
-        rows=[{"civ":c,"games":g,"winRate":w} for c,g,w in seed]
+        rows=[{"civ":c,"games":g,"winRate":w,"scope":"1v1-ranked"} for c,g,w in seed]
         payload={"ok":True,"rows":rows,"source":"seed","sourceLabel":"Seeded AoE2 Ladder snapshot · 1v1 RM","sourceUrl":url,"fetchedAt":int(time.time()*1000),"fallback":True,"warning":str(e)}
     MAP_CACHE[map_name]={"time":now,"payload":payload};return payload
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version="AoE2DraftAssistant/3.0"
+    server_version="AoE2DraftAssistant/3.1"
     def translate_path(self,path):
         parsed=urllib.parse.urlparse(path);rel=parsed.path.lstrip("/") or "index.html"
         return str((STATIC/rel).resolve())
@@ -136,7 +187,7 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self,fmt,*args):print("[%s] %s"%(self.log_date_time_string(),fmt%args))
     def do_GET(self):
         parsed=urllib.parse.urlparse(self.path);qs=urllib.parse.parse_qs(parsed.query)
-        if parsed.path=="/api/config":return self.send_json({"defaultDraftUrl":DEFAULT_DRAFT,"version":3})
+        if parsed.path=="/api/config":return self.send_json({"defaultDraftUrl":DEFAULT_DRAFT,"version":3.1})
         if parsed.path=="/api/room":
             room=clean_room((qs.get("room") or ["default"])[0]);store=load_store();return self.send_json({"ok":True,"room":room,"data":store.get(room,{})})
         if parsed.path=="/api/mapstats":
@@ -167,7 +218,7 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:return self.send_json({"ok":False,"error":str(e)},400)
 
 def main():
-    ap=argparse.ArgumentParser(description="AoE2 versioned map-aware draft assistant");ap.add_argument("--host",default="0.0.0.0");ap.add_argument("--port",type=int,default=int(os.getenv("PORT","8765")));ap.add_argument("--no-browser",action="store_true");args=ap.parse_args();os.chdir(STATIC);httpd=ThreadingHTTPServer((args.host,args.port),Handler);local=f"http://127.0.0.1:{args.port}";print("\nAoE2 Draft Assistant v3\n======================\nLocal:",local);print(f"Team/LAN: http://<YOUR-PC-IP>:{args.port}\nPress Ctrl+C to stop.\n")
+    ap=argparse.ArgumentParser(description="AoE2 versioned map-aware draft assistant");ap.add_argument("--host",default="0.0.0.0");ap.add_argument("--port",type=int,default=int(os.getenv("PORT","8765")));ap.add_argument("--no-browser",action="store_true");args=ap.parse_args();os.chdir(STATIC);httpd=ThreadingHTTPServer((args.host,args.port),Handler);local=f"http://127.0.0.1:{args.port}";print("\nAoE2 Draft Assistant v3.1\n========================\nLocal:",local);print(f"Team/LAN: http://<YOUR-PC-IP>:{args.port}\nPress Ctrl+C to stop.\n")
     if not args.no_browser and os.getenv("RENDER")!="true":threading.Timer(.7,lambda:webbrowser.open(local)).start()
     try:httpd.serve_forever()
     except KeyboardInterrupt:pass
