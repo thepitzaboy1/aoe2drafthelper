@@ -18,9 +18,14 @@ DATA_DIR=ROOT/"data"
 STORE_FILE=ROOT/"rooms.json"
 RF_STATS_FILE=DATA_DIR/"rage_forest_6_2026.json"
 LOCK=threading.Lock()
+DRAFT_LOCK=threading.Lock()
 DEFAULT_DRAFT="https://aoe2cm.net/draft/OEoDI"
 MAP_CACHE={}
+DRAFT_CACHE={}
 CACHE_SECONDS=15*60
+DRAFT_CACHE_SECONDS=3.0
+DRAFT_STALE_SECONDS=10*60
+VERSION=3.2
 
 CIVS={"armenians","aztecs","bengalis","berbers","bohemians","britons","bulgarians","burgundians","burmese","byzantines","celts","chinese","cumans","danes","dravidians","ethiopians","franks","georgians","goths","gurjaras","hindustanis","huns","incas","italians","japanese","jurchens","khitans","khmer","koreans","lithuanians","magyars","malay","malians","mapuche","mayans","mongols","muisca","persians","poles","portuguese","romans","saracens","saxons","shu","sicilians","slavs","spanish","tatars","teutons","tupi","turks","varangians","vietnamese","vikings","wei","wu"}
 ALIASES={"maya":"Mayans","inca":"Incas"}
@@ -46,18 +51,57 @@ def clean_room(value):
     return room or "default"
 
 def fetch_bytes(url,timeout=18):
-    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 AoE2DraftAssistant/3.1","Accept":"text/html,application/json,*/*"})
+    req=urllib.request.Request(url,headers={"User-Agent":f"Mozilla/5.0 AoE2DraftAssistant/{VERSION}","Accept":"text/html,application/json,*/*","Cache-Control":"no-cache"})
     with urllib.request.urlopen(req,timeout=timeout) as r:return r.read(),r.headers.get("Content-Type","")
 
 def fetch_json(url,timeout=15):
     body,_=fetch_bytes(url,timeout)
     return json.loads(body.decode("utf-8",errors="replace"))
 
+def fetch_json_retry(url,timeout=15,attempts=3):
+    last=None
+    for i in range(max(1,attempts)):
+        try:return fetch_json(url,timeout)
+        except Exception as e:
+            last=e
+            if i+1<attempts:time.sleep(0.35*(2**i))
+    raise last or RuntimeError("Upstream request failed")
+
 def extract_draft_id(value):
     value=str(value or "").strip();m=re.search(r"/draft/([A-Za-z0-9_-]+)",value)
     if m:return m.group(1)
     if re.fullmatch(r"[A-Za-z0-9_-]{3,40}",value):return value
     raise ValueError("Could not find an AoE2CM draft id.")
+
+def get_draft_proxy(draft_id):
+    """Fetch one AoE2CM draft reliably without hammering AoE2CM from every browser.
+
+    All team clients share a 3-second server cache. A failed upstream request is
+    retried and, if AoE2CM is temporarily unavailable, the last successful copy
+    is served for up to 10 minutes. Live clients still poll every five seconds,
+    but transient 5xx/DNS failures no longer erase authoritative draft state.
+    """
+    now=time.time()
+    with DRAFT_LOCK:
+        cached=DRAFT_CACHE.get(draft_id.lower())
+        if cached and now-cached["time"]<DRAFT_CACHE_SECONDS:
+            return {"ok":True,"draftId":draft_id,"data":cached["data"],"mode":"draft-api-cache","cached":True,"stale":False,"cacheAgeMs":int((now-cached["time"])*1000)},200
+        try:
+            data=fetch_json_retry(f"https://aoe2cm.net/api/draft/{draft_id}",timeout=15,attempts=3)
+            if not isinstance(data,(dict,list)):raise RuntimeError("AoE2CM returned an unexpected draft payload")
+            DRAFT_CACHE[draft_id.lower()]={"time":time.time(),"data":data}
+            return {"ok":True,"draftId":draft_id,"data":data,"mode":"draft-api","cached":False,"stale":False},200
+        except Exception as primary_error:
+            cached=DRAFT_CACHE.get(draft_id.lower())
+            age=(time.time()-cached["time"]) if cached else None
+            if cached and age is not None and age<DRAFT_STALE_SECONDS:
+                return {"ok":True,"draftId":draft_id,"data":cached["data"],"mode":"draft-api-cache","cached":True,"stale":True,"cacheAgeMs":int(age*1000),"warning":str(primary_error)},200
+            recent=None
+            try:
+                items=fetch_json_retry("https://aoe2cm.net/api/recentdrafts",timeout=12,attempts=2)
+                if isinstance(items,list):recent=next((x for x in items if str(x.get("draftId","")).lower()==draft_id.lower()),None)
+            except Exception:pass
+            return {"ok":False,"draftId":draft_id,"ongoing":bool(recent and recent.get("ongoing")),"recent":recent,"error":str(primary_error),"mode":"manual-live-fallback"},502
 
 def nkey(s):return re.sub(r"[^a-z0-9]+","",str(s or "").lower())
 
@@ -178,16 +222,18 @@ def get_map_stats(map_name):
     MAP_CACHE[map_name]={"time":now,"payload":payload};return payload
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version="AoE2DraftAssistant/3.1"
+    server_version=f"AoE2DraftAssistant/{VERSION}"
     def translate_path(self,path):
         parsed=urllib.parse.urlparse(path);rel=parsed.path.lstrip("/") or "index.html"
-        return str((STATIC/rel).resolve())
+        base=STATIC.resolve();target=(STATIC/rel).resolve()
+        if target!=base and base not in target.parents:return str(base/"__not_found__")
+        return str(target)
     def send_json(self,payload,status=200):
         raw=json.dumps(payload,ensure_ascii=False).encode("utf-8");self.send_response(status);self.send_header("Content-Type","application/json; charset=utf-8");self.send_header("Content-Length",str(len(raw)));self.send_header("Cache-Control","no-store");self.end_headers();self.wfile.write(raw)
     def log_message(self,fmt,*args):print("[%s] %s"%(self.log_date_time_string(),fmt%args))
     def do_GET(self):
         parsed=urllib.parse.urlparse(self.path);qs=urllib.parse.parse_qs(parsed.query)
-        if parsed.path=="/api/config":return self.send_json({"defaultDraftUrl":DEFAULT_DRAFT,"version":3.1})
+        if parsed.path=="/api/config":return self.send_json({"defaultDraftUrl":DEFAULT_DRAFT,"version":VERSION})
         if parsed.path=="/api/room":
             room=clean_room((qs.get("room") or ["default"])[0]);store=load_store();return self.send_json({"ok":True,"room":room,"data":store.get(room,{})})
         if parsed.path=="/api/mapstats":
@@ -198,15 +244,7 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path=="/api/draft":
             try:draft_id=extract_draft_id((qs.get("url") or [""])[0])
             except Exception as e:return self.send_json({"ok":False,"error":str(e)},400)
-            try:
-                data=fetch_json(f"https://aoe2cm.net/api/draft/{draft_id}");return self.send_json({"ok":True,"draftId":draft_id,"data":data,"mode":"draft-api"})
-            except Exception as primary_error:
-                recent=None
-                try:
-                    items=fetch_json("https://aoe2cm.net/api/recentdrafts")
-                    if isinstance(items,list):recent=next((x for x in items if str(x.get("draftId","")).lower()==draft_id.lower()),None)
-                except Exception:pass
-                return self.send_json({"ok":False,"draftId":draft_id,"ongoing":bool(recent and recent.get("ongoing")),"recent":recent,"error":str(primary_error),"mode":"manual-live-fallback"})
+            payload,status=get_draft_proxy(draft_id);return self.send_json(payload,status)
         return super().do_GET()
     def do_POST(self):
         parsed=urllib.parse.urlparse(self.path)
@@ -218,7 +256,7 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:return self.send_json({"ok":False,"error":str(e)},400)
 
 def main():
-    ap=argparse.ArgumentParser(description="AoE2 versioned map-aware draft assistant");ap.add_argument("--host",default="0.0.0.0");ap.add_argument("--port",type=int,default=int(os.getenv("PORT","8765")));ap.add_argument("--no-browser",action="store_true");args=ap.parse_args();os.chdir(STATIC);httpd=ThreadingHTTPServer((args.host,args.port),Handler);local=f"http://127.0.0.1:{args.port}";print("\nAoE2 Draft Assistant v3.1\n========================\nLocal:",local);print(f"Team/LAN: http://<YOUR-PC-IP>:{args.port}\nPress Ctrl+C to stop.\n")
+    ap=argparse.ArgumentParser(description="AoE2 versioned map-aware draft assistant");ap.add_argument("--host",default="0.0.0.0");ap.add_argument("--port",type=int,default=int(os.getenv("PORT","8765")));ap.add_argument("--no-browser",action="store_true");args=ap.parse_args();os.chdir(STATIC);httpd=ThreadingHTTPServer((args.host,args.port),Handler);local=f"http://127.0.0.1:{args.port}";print(f"\nAoE2 Draft Assistant v{VERSION}\n========================\nLocal:",local);print(f"Team/LAN: http://<YOUR-PC-IP>:{args.port}\nPress Ctrl+C to stop.\n")
     if not args.no_browser and os.getenv("RENDER")!="true":threading.Timer(.7,lambda:webbrowser.open(local)).start()
     try:httpd.serve_forever()
     except KeyboardInterrupt:pass
