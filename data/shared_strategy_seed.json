@@ -1,0 +1,105 @@
+{
+  "id": "team",
+  "name": "Shared Team Strategy",
+  "versions": [
+    {
+      "id": "shared-v1",
+      "name": "v1 – shared library",
+      "description": "",
+      "createdAt": "2026-10-21T00:00:00Z",
+      "parentId": null,
+      "locked": false,
+      "categories": [
+        {
+          "id": "flank",
+          "name": "Flank civ",
+          "civs": [],
+          "mapCivs": {}
+        },
+        {
+          "id": "halbso",
+          "name": "Halb + SO",
+          "civs": [],
+          "mapCivs": {}
+        },
+        {
+          "id": "paladin",
+          "name": "Paladin",
+          "civs": [],
+          "mapCivs": {}
+        },
+        {
+          "id": "pocket",
+          "name": "Pocket",
+          "civs": [],
+          "mapCivs": {}
+        },
+        {
+          "id": "ca",
+          "name": "Cav Archer",
+          "civs": [],
+          "mapCivs": {}
+        }
+      ],
+      "civs": [
+        "Armenians",
+        "Aztecs",
+        "Bengalis",
+        "Berbers",
+        "Bohemians",
+        "Britons",
+        "Bulgarians",
+        "Burgundians",
+        "Burmese",
+        "Byzantines",
+        "Celts",
+        "Chinese",
+        "Cumans",
+        "Danes",
+        "Dravidians",
+        "Ethiopians",
+        "Franks",
+        "Georgians",
+        "Goths",
+        "Gurjaras",
+        "Hindustanis",
+        "Huns",
+        "Incas",
+        "Italians",
+        "Japanese",
+        "Jurchens",
+        "Khitans",
+        "Khmer",
+        "Koreans",
+        "Lithuanians",
+        "Magyars",
+        "Malay",
+        "Malians",
+        "Mapuche",
+        "Mayans",
+        "Mongols",
+        "Muisca",
+        "Persians",
+        "Poles",
+        "Portuguese",
+        "Romans",
+        "Saracens",
+        "Saxons",
+        "Shu",
+        "Sicilians",
+        "Slavs",
+        "Spanish",
+        "Tatars",
+        "Teutons",
+        "Tupi",
+        "Turks",
+        "Varangians",
+        "Vietnamese",
+        "Vikings",
+        "Wei",
+        "Wu"
+      ]
+    }
+  ],
+  "activeVersionId": "shared-v1"
+}

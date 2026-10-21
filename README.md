@@ -1,3 +1,23 @@
+## Shared strategy library (database setup required before deployment)
+
+Every visitor now uses the same server strategy library, regardless of draft room.
+Rankings, versions, notes, locks and map overrides save automatically and update
+other browsers. Draft rooms keep independent match picks and bans.
+
+Production requires `DATABASE_URL` pointing to PostgreSQL. The Render blueprint
+sets `REQUIRE_DURABLE_STRATEGIES=1`, so an unconfigured deployment refuses strategy
+writes instead of pretending temporary storage is permanent. Local development
+uses SQLite, configurable with `STRATEGY_DB_PATH`.
+
+Existing browser and legacy room strategies are offered through **Add my saved
+versions**. Import adds versions without deleting the team's existing library.
+Conflicts preserve unsaved work for export; independent category edits merge.
+Each successful write also creates a server history snapshot.
+
+See [deployment and migration instructions](SHARED_LIBRARY_SETUP.md).
+
+---
+
 # AoE2 Draft Assistant v3.1
 
 A shared Age of Empires II tournament drafting assistant built around **your team's strategy**, not a generic S/A/B/C tier list.

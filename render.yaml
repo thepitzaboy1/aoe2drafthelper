@@ -6,3 +6,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python live_server.py --no-browser
     healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REQUIRE_DURABLE_STRATEGIES
+        value: "1"

@@ -3,7 +3,7 @@ let roomBase={},roomQueue=[],roomSending=false,roomGeneration=0;
 function roomDiff(before,after,path=[]){
   if(JSON.stringify(before)===JSON.stringify(after))return [];
   if(before&&after&&typeof before==='object'&&typeof after==='object'&&!Array.isArray(before)&&!Array.isArray(after)){
-    return [...new Set([...Object.keys(before),...Object.keys(after)])].filter(k=>!['rev','updatedAt'].includes(k)).flatMap(k=>roomDiff(before[k],after[k],[...path,k]));
+    return [...new Set([...Object.keys(before),...Object.keys(after)])].filter(k=>!['rev','updatedAt'].includes(k)&&!(app.sharedLibraryEnabled&&path.length===0&&k==='strategy')).flatMap(k=>roomDiff(before[k],after[k],[...path,k]));
   }
   return [{path,before:before??null,value:after??null,remove:after===undefined}];
 }
@@ -34,7 +34,7 @@ async function pullRoom(){
     if(!j.data?.updatedAt){roomBase={};await pushRoom();return;}
     if((j.data.rev||0)<app.rev&&app.lastPull)return;
     if(j.data?.updatedAt&&j.data.updatedAt>app.lastPull){
-      const d=j.data;if(d.strategy?.versions?.length)app.strategy=d.strategy;
+      const d=j.data;if(app.sharedLibraryEnabled&&d.strategy?.versions?.length&&typeof offerLegacyLibrary==='function')offerLegacyLibrary(d.strategy);if(!app.sharedLibraryEnabled&&d.strategy?.versions?.length)app.strategy=d.strategy;
       if(d.draft)app.draft=clone(d.draft);
       app.autoStatuses={...(app.draft.syncedStatuses||{})};app.autoDraftMeta=app.draft.syncedMeta||null;
       app.rev=d.rev||0;app.lastPull=d.updatedAt;

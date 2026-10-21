@@ -1,31 +1,21 @@
+# Automatic collaboration tests now run in shared-strategy.yml against a disposable database.
 name: live-strategy-e2e
-
 on:
-  push:
-    branches: [main]
-    paths:
-      - server.py
-      - static/strategy-live-fix.js
-      - static/index.html
-      - live_strategy_e2e.mjs
-      - .github/workflows/live-strategy-e2e.yml
   workflow_dispatch:
-
 jobs:
-  deployed-live-draft:
+  browser-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Playwright Chromium
-        run: |
-          npm init -y >/dev/null 2>&1
+      - run: pip install -r requirements.txt
+      - run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
-      - name: Test strategy-first live draft on Render
-        env:
-          TARGET_URL: https://aoe2-draft-assistant.onrender.com
-        run: node live_strategy_e2e.mjs
+      - run: node shared_browser_e2e.mjs

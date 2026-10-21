@@ -12,7 +12,7 @@
 <div class="top"><div class="topin">
   <div class="brand">AoE2 Draft Assistant <small>Versioned strategy + strategy-first live drafting</small></div>
   <div class="tabs"><button class="tab active" data-tab="builder">Strategy Builder</button><button class="tab" data-tab="live">Live Draft</button></div>
-  <div class="room"><span class="tiny">Room</span><input id="roomId" class="field" placeholder="team-room"><button id="joinRoom" class="btn">Join</button><button id="copyRoom" class="btn ghost">Copy link</button></div>
+  <div class="room"><span class="tiny">Draft room</span><input id="roomId" class="field" placeholder="team-room"><button id="joinRoom" class="btn">Join</button><button id="copyRoom" class="btn ghost">Copy link</button></div>
 </div></div>
 
 <div class="wrap">
@@ -87,4 +87,5 @@
   if(!localStorage.getItem('aoe2draft-v3')) app.draft.selectedMap='Rage Forest';
 </script>
 <script src="intelligence.js"></script><script src="live.js"></script><script src="aoe2cm-fix.js"></script><script src="strategy-live-fix.js?v=3.4.1"></script>
+<script src="shared-strategy.js?v=1"></script>
 </body></html>
