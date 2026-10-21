@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -48,7 +47,7 @@ def main():
     )
     try:
         config = wait_ready()
-        assert config.get("version") == 3, config
+        assert float(config.get("version")) >= 3.1, config
 
         room = "ci-smoke-draft"
         payload = {
@@ -66,8 +65,8 @@ def main():
                         "locked": True,
                         "civs": ["Mongols", "Franks", "Bohemians", "Celts", "Teutons"],
                         "categories": [
-                            {"id": "pocket", "name": "Pocket", "civs": ["Mongols", "Franks", "Teutons"], "mapCivs": {"Black Forest": ["Mongols", "Teutons", "Franks"]}},
-                            {"id": "halbso", "name": "Halb + SO", "civs": ["Bohemians", "Celts", "Teutons"], "mapCivs": {"Black Forest": ["Bohemians", "Celts", "Teutons"]}},
+                            {"id": "pocket", "name": "Pocket", "civs": ["Mongols", "Franks", "Teutons"], "mapCivs": {"Rage Forest": ["Mongols", "Teutons", "Franks"]}},
+                            {"id": "halbso", "name": "Halb + SO", "civs": ["Bohemians", "Celts", "Teutons"], "mapCivs": {"Rage Forest": ["Bohemians", "Celts", "Teutons"]}},
                         ],
                     }],
                     "activeVersionId": "v-smoke",
@@ -76,7 +75,7 @@ def main():
                     "statuses": {"mongols": "our", "franks": "opp", "bohemians": "ban"},
                     "needIds": ["halbso"],
                     "threatIds": ["pocket"],
-                    "selectedMap": "Black Forest",
+                    "selectedMap": "Rage Forest",
                     "versionId": "v-smoke",
                 },
             },
@@ -88,18 +87,26 @@ def main():
         assert status == 200 and loaded.get("ok") is True, loaded
         data = loaded.get("data", {})
         assert data.get("draft", {}).get("statuses", {}).get("mongols") == "our", data
-        assert data.get("draft", {}).get("selectedMap") == "Black Forest", data
+        assert data.get("draft", {}).get("selectedMap") == "Rage Forest", data
         assert data.get("strategy", {}).get("versions", [])[0].get("locked") is True, data
 
-        # Exercise the map-stats endpoint. Arabia/Arena have a seeded fallback, so
-        # this remains deterministic even if the public source is temporarily down.
+        # RF is the primary use case. This must be deterministic and use the
+        # checked-in Rage Forest 6 4v4 tournament dataset, not an external 1v1 feed.
+        status, rf = req("/api/mapstats?map=" + urllib.parse.quote("Rage Forest"))
+        assert status == 200 and rf.get("ok") is True, rf
+        assert rf.get("source") == "rage-forest-6", rf
+        assert len(rf.get("rows", [])) >= 50, rf
+        assert rf.get("datasetMeta", {}).get("matches") == 127, rf
+        bohemians = next((r for r in rf["rows"] if r.get("civ") == "Bohemians"), None)
+        assert bohemians and bohemians.get("winRate") == 71.0, bohemians
+        assert bohemians.get("adjustedWinRate") is not None, bohemians
+
+        # Keep one non-RF stats route covered as well.
         status, stats = req("/api/mapstats?map=Arabia")
         assert status == 200 and stats.get("ok") is True, stats
         assert isinstance(stats.get("rows"), list) and len(stats["rows"]) >= 5, stats
 
-        # Exercise the sample draft path supplied for this project. The external
-        # AoE2CM service may or may not expose live actions; either way our API
-        # must return a well-formed response and never crash the draft assistant.
+        # Exercise the sample draft path supplied for this project.
         status, draft = req("/api/draft?url=" + urllib.parse.quote("https://aoe2cm.net/draft/OEoDI"), timeout=35)
         assert status == 200, draft
         assert draft.get("draftId") == "OEoDI", draft
@@ -109,10 +116,12 @@ def main():
         print(json.dumps({
             "config": config,
             "room": room,
-            "mapStatsRows": len(stats.get("rows", [])),
-            "mapStatsSource": stats.get("source"),
+            "rfRows": len(rf.get("rows", [])),
+            "rfSource": rf.get("sourceLabel"),
+            "rfMatches": rf.get("datasetMeta", {}).get("matches"),
+            "bohemiansRF": bohemians,
+            "arabiaRows": len(stats.get("rows", [])),
             "draftMode": draft.get("mode"),
-            "draftOngoing": draft.get("ongoing"),
         }, indent=2))
         return 0
     finally:
