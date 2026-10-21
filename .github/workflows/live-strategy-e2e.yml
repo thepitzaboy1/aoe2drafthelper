@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - server.py
       - static/strategy-live-fix.js
       - static/index.html
       - live_strategy_e2e.mjs
