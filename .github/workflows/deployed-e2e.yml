@@ -26,6 +26,16 @@ jobs:
         env:
           TARGET_URL: https://aoe2-draft-assistant.onrender.com
         run: |
-          sed -i "s/assert.equal(await page.locator('title').textContent(),'AoE2 Draft Assistant v3');/assert.match(await page.locator('title').textContent(),\/AoE2 Draft Assistant v3\/);/" deployed_e2e.mjs
-          sed -i "/await page.waitForSelector('#builderView:not(.hidden)'/a\\  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()==='#ffffff',null,{timeout:30000});" deployed_e2e.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('deployed_e2e.mjs')
+          s=p.read_text()
+          old='''async function fetchJson(path, opts={}){\n  const r=await fetch(BASE+path,opts);\n  let body;\n  try{body=await r.json()}catch{body={raw:await r.text()}}\n  return {status:r.status,body,headers:r.headers};\n}'''
+          new='''async function fetchJson(path, opts={}){\n  const r=await fetch(BASE+path,opts);\n  const raw=await r.text();\n  let body;\n  try{body=JSON.parse(raw)}catch{body={raw}}\n  return {status:r.status,body,headers:r.headers};\n}'''
+          s=s.replace(old,new)
+          s=s.replace("assert.equal(await page.locator('title').textContent(),'AoE2 Draft Assistant v3');","assert.match(await page.locator('title').textContent(),/AoE2 Draft Assistant v3/);")
+          marker="await page.waitForSelector('#builderView:not(.hidden)',{timeout:30000});"
+          s=s.replace(marker,marker+"\n  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()==='#ffffff',null,{timeout:30000});")
+          p.write_text(s)
+          PY
           node deployed_e2e.mjs
