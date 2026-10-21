@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  syntax:
+  syntax-and-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,9 +17,13 @@ jobs:
         with:
           node-version: '22'
       - name: Python syntax
-        run: python -m py_compile server.py
+        run: |
+          python -m py_compile server.py
+          python -m py_compile smoke_test.py
       - name: JavaScript syntax
         run: |
           node --check static/app.js
           node --check static/intelligence.js
           node --check static/live.js
+      - name: End-to-end draft smoke test
+        run: python smoke_test.py
