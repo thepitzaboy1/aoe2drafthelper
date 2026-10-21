@@ -8,16 +8,25 @@ const CIVS=["Armenians","Aztecs","Bengalis","Berbers","Bohemians","Britons","Bul
 async function json(path,opts={}){const r=await fetch(BASE+path,opts);const raw=await r.text();let body;try{body=JSON.parse(raw)}catch{body={raw}}return{status:r.status,body}}
 async function waitForDeploy(){
   let last='';
-  for(let i=0;i<60;i++){
+  for(let i=0;i<72;i++){
     try{
-      const [asset,home]=await Promise.all([fetch(BASE+'/strategy-live-fix.js',{cache:'no-store'}),fetch(BASE+'/',{cache:'no-store'})]);
+      const [asset,home,config]=await Promise.all([fetch(BASE+'/strategy-live-fix.js',{cache:'no-store'}),fetch(BASE+'/',{cache:'no-store'}),json('/api/config')]);
       const [a,h]=await Promise.all([asset.text(),home.text()]);
-      if(asset.status===200&&a.includes('STRATEGY_LIVE_FIX_VERSION="3.2"')&&h.includes('strategy-live-fix.js')&&h.includes('AoE2 Draft Assistant v3.2'))return;
-      last=`asset=${asset.status}, marker=${a.includes('STRATEGY_LIVE_FIX_VERSION="3.2"')}, html=${h.includes('AoE2 Draft Assistant v3.2')}`;
+      if(asset.status===200&&a.includes('STRATEGY_LIVE_FIX_VERSION="3.2"')&&h.includes('strategy-live-fix.js')&&h.includes('AoE2 Draft Assistant v3.2')&&config.status===200&&Number(config.body.version)>=3.2)return;
+      last=`asset=${asset.status}, marker=${a.includes('STRATEGY_LIVE_FIX_VERSION="3.2"')}, html=${h.includes('AoE2 Draft Assistant v3.2')}, api=${config.body?.version}`;
     }catch(e){last=e.message}
     await sleep(5000);
   }
-  throw new Error('v3.2 did not deploy: '+last);
+  throw new Error('v3.2 front/back end did not deploy: '+last);
+}
+async function liveDraft(path,attempts=6){
+  let last;
+  for(let i=0;i<attempts;i++){
+    last=await json(path);
+    if(last.status===200&&last.body?.ok)return last;
+    await sleep(1500*(i+1));
+  }
+  return last;
 }
 function action(e){return String(e.actionType??e.action??e.type??'').toLowerCase()}
 function actor(e){return String(e.executingPlayer??e.player??'').toLowerCase()}
@@ -27,9 +36,12 @@ async function main(){
   const report={target:BASE,api:{},browser:{}};
   await waitForDeploy();
 
-  // Validate the real AoE2CM sample before touching the UI.
-  const d=await json('/api/draft?url='+encodeURIComponent('https://aoe2cm.net/draft/OEoDI'));
-  assert.equal(d.status,200);assert.equal(d.body.ok,true);assert.equal(d.body.mode,'draft-api');
+  // Validate the real AoE2CM sample before touching the UI. The server itself
+  // retries and caches; the outer retries make the E2E tolerant of a Render or
+  // AoE2CM cold start without hiding a sustained outage.
+  const draftPath='/api/draft?url='+encodeURIComponent('https://aoe2cm.net/draft/OEoDI');
+  const d=await liveDraft(draftPath);
+  assert.equal(d.status,200,`AoE2CM proxy stayed unavailable: ${JSON.stringify(d.body)}`);assert.equal(d.body.ok,true);assert.match(d.body.mode,/^draft-api/);
   const events=d.body.data?.events||[];
   const admin=events.filter(e=>/ban|snipe/.test(action(e))&&actor(e)==='none');
   const hostBans=events.filter(e=>/ban|snipe/.test(action(e))&&actor(e)==='host');
@@ -40,7 +52,11 @@ async function main(){
   assert.equal(admin.length,27,'OEoDI admin bans must be identifiable');
   assert.equal(hostBans.length,2);assert.equal(guestBans.length,2);
   assert.equal(hostPicks.length,12);assert.equal(guestPicks.length,12);
-  report.api.aoe2cm={events:events.length,adminBans:admin.length,hostBans:hostBans.length,guestBans:guestBans.length,hostPicks:hostPicks.length,guestPicks:guestPicks.length};
+  report.api.aoe2cm={events:events.length,adminBans:admin.length,hostBans:hostBans.length,guestBans:guestBans.length,hostPicks:hostPicks.length,guestPicks:guestPicks.length,proxyMode:d.body.mode};
+
+  // Verify the shared short cache: a second immediate request should succeed and
+  // should not require every teammate's browser to hit AoE2CM independently.
+  const cached=await json(draftPath);assert.equal(cached.status,200);assert.equal(cached.body.ok,true);assert.match(cached.body.mode,/^draft-api/);report.api.sharedDraftCache='PASS';
 
   // Seed a deterministic strategy room. Romans is deliberately in the civ pool
   // but not in any category, so a global-stat fallback would be caught.
@@ -130,7 +146,7 @@ async function main(){
   await page.fill('#draftUrl','https://aoe2cm.net/draft/OEoDI');
   await page.selectOption('#ourSide','host');
   await page.click('#syncDraftBtn');
-  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM live'),null,{timeout:45000});
+  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM live'),null,{timeout:60000});
   assert.match(await page.locator('#draftStatus').innerText(),/27 admin bans/);
   assert.match(await page.locator('#draftSourceSummary').innerText(),/27 admin bans · 4 player bans · 12 our picks · 12 their picks/i);
   const adminCiv=choice(admin[0]),hostPick=choice(hostPicks[0]),guestPick=choice(guestPicks[0]),playerBan=choice(hostBans[0]);
@@ -141,7 +157,7 @@ async function main(){
 
   // Flip perspective: real draft picks must invert correctly while bans stay bans.
   await page.selectOption('#ourSide','guest');
-  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM live'),null,{timeout:45000});
+  await page.waitForFunction(()=>document.querySelector('#draftStatus')?.textContent.includes('AoE2CM live'),null,{timeout:60000});
   await page.waitForFunction((c)=>document.querySelector(`#boardGrid .civ[data-civ="${c}"]`)?.textContent.includes('THEIR PICK'),hostPick,{timeout:15000});
   assert.match(await page.locator(`#boardGrid .civ[data-civ="${hostPick}"]`).innerText(),/THEIR PICK/);
   assert.match(await page.locator(`#boardGrid .civ[data-civ="${guestPick}"]`).innerText(),/OUR PICK/);
