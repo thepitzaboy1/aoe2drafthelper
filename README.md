@@ -1,96 +1,146 @@
-# AoE2 Draft Assistant v2
+# AoE2 Draft Assistant v3
 
-Category-first team drafting for Age of Empires II.
+A shared Age of Empires II tournament drafting assistant built around **your team's strategy**, not a generic S/A/B/C tier list.
 
-## What changed from v1
+## v3 highlights
 
-Instead of a single S/A/B/C tier list, v2 lets your team define tactical categories:
+### Versioned strategy builder
 
-- Flank civ
-- Halb + SO
-- Paladin
-- Pocket
-- Cav Archer
-- Camel
-- Gunpowder
-- Siege
-- Boom
-- Anti-cav
-- Player comfort categories
-- any custom category you want
+The strategy builder now keeps immutable-ish history instead of one constantly changing list.
 
-A civilization can belong to multiple categories and can have a different rank inside each category.
+Each version stores:
 
-## Live draft workflow
+- category definitions (Flank, Halb + SO, Paladin, Pocket, Cav Archer, or anything custom)
+- civilization order inside every category
+- map-specific overrides
+- description / tournament notes
+- created time and parent/source version
+- lock state
 
-1. Build your categories before the tournament.
-2. Drag civs into each category in preference order (left = strongest).
-3. Open **Live Draft**.
-4. Select the capabilities you still need under **Our needs**.
-5. Optionally select categories you think the opponent needs under **Opponent threats**.
-6. The app recommends:
-   - best next pick
-   - best ban
-   - flexible civs that cover multiple categories
-7. Click civ cards as the draft progresses:
-   - Available
-   - Our pick
-   - Their pick
-   - Banned
-8. The capability matrix shows what your composition has already secured.
+You can:
 
-The AoE2CM URL sync is still included. If AoE2CM does not expose live action data for an in-progress draft, the shared manual board keeps working.
+- create a new version from the current version
+- rename and describe versions
+- lock a tournament-ready version
+- switch to older versions
+- **Restore as new** to branch from an old version without destroying history
+- delete unwanted versions
+
+A live draft is **pinned to a specific strategy version**, so editing a future version does not silently change the recommendations in an active match.
+
+### Map-specific rankings
+
+Base rankings remain the default. In Strategy Builder, choose a map such as:
+
+- Arabia
+- Arena
+- Black Forest
+- Rage Forest
+- Michi
+- Fortress
+- Hideout
+- Nomad
+- Four Lakes
+- Socotra
+- Golden Pit
+- MegaRandom
+
+When you edit a category while a map is selected, the app automatically creates a map-specific override for that category. Categories without an override continue inheriting the base ranking.
+
+Example:
+
+- Base Halb + SO: Bohemians → Celts → Teutons → Slavs
+- Black Forest override: Bohemians → Celts → Slavs → Teutons
+
+### Map intelligence and recommendation score
+
+For a selected map the live-draft screen combines six signals:
+
+- **45% Team preference** — your order inside the selected capability categories
+- **15% Map signal** — public map win-rate data when available, blended with a map-style profile
+- **15% Composition coverage** — how much of the selected team need the civ solves
+- **10% Flexibility** — number of useful categories the civ covers
+- **10% Scarcity** — urgency when preferred options are disappearing
+- **5% Opponent denial** — overlap with capabilities marked as opponent threats
+
+The exact public statistic is intentionally a secondary signal. Public sources are usually 1v1 Random Map data, while tournament drafts (especially Rage Forest / 4v4) are coordinated team games.
+
+### Public map statistics
+
+The server attempts to retrieve the selected map's **1v1 RM map-performance table from AoE2 Ladder** and shows the source/freshness in the UI.
+
+- Results are cached for 15 minutes.
+- Arabia and Arena include a small seeded fallback snapshot so recommendations still demonstrate the statistic layer if the upstream page is temporarily inaccessible.
+- Rage Forest intentionally uses the team's map model rather than pretending that 1v1 data is directly representative.
+- If stats cannot be fetched, recommendations continue using your rankings, composition, scarcity and map profile and are clearly labelled as **Team model only**.
+
+### Scarcity warnings
+
+For each capability selected under **Our needs**, the app watches your top five choices.
+
+Example warning:
+
+> Halb + SO at risk: only 2/5 preferred options remain. Best available: Slavs.
+
+This is designed to answer the live-draft question: **what do we need to secure before the next pick cycle?**
+
+## Core workflow
+
+1. Open **Strategy Builder**.
+2. Build categories and drag civilizations left → right from strongest to weakest.
+3. Create a named version for the tournament / practice session.
+4. Add map-specific overrides only where your order changes.
+5. Lock a tournament-ready version.
+6. Open **Live Draft** and pin the version you want to use.
+7. Select the map.
+8. Select your remaining capabilities under **Our needs**.
+9. Select likely opponent requirements under **Opponent threats**.
+10. Use **Best next pick**, **Best ban**, **Map Intelligence**, and the **Capability Matrix** while the draft progresses.
+11. Click each civilization to cycle Available → Our pick → Their pick → Banned when automatic AoE2CM live-state data is unavailable.
 
 ## Shared team room
 
-The app includes a tiny server-side shared room store.
+Choose a room name and click **Join**, then **Copy link**. Teammates using the same hosted app + room link share:
 
-Choose a room name, click **Join**, then **Copy link**. Everyone using the same hosted app + room link sees the same:
-
-- category setup
-- rankings
+- strategy versions
+- map overrides
+- pinned draft version
 - picks / bans
 - selected needs / threats
+- selected map
 
-Room state polls every ~2 seconds.
+Room state currently uses a simple server-side JSON store and browser local storage. On a free/ephemeral host, server restarts can clear server-side room state; each browser still retains its most recent local copy. A database such as Supabase is the natural next persistence upgrade.
+
+## AoE2CM
+
+The app attempts:
+
+`GET https://aoe2cm.net/api/draft/<draft-id>`
+
+When the live draft is not exposed through that endpoint, the manual shared board remains fully functional.
+
+## Hosting on Render
+
+The repository includes `render.yaml` and uses only the Python standard library.
+
+Render start command:
+
+```bash
+python server.py --no-browser
+```
+
+The server reads the platform-provided `PORT` environment variable automatically.
 
 ## Local Windows start
 
-1. Unzip.
-2. Double-click `run.bat`.
-3. Open `http://127.0.0.1:8765`.
-4. Teammates on the same LAN can use `http://YOUR-PC-IP:8765`.
+Double-click `run.bat`, or run:
 
-No third-party Python packages are required.
+```bash
+python server.py
+```
 
-## Host on the internet
-
-This package is ready for a small Python web host.
-
-### Render
-
-Files included:
-- `render.yaml`
-- `requirements.txt` (empty because the app uses only the standard library)
-
-Typical deployment:
-1. Put this folder in a GitHub repo.
-2. Create a Render Web Service from the repo.
-3. Render will use the `render.yaml` configuration.
-4. Share the public URL with your team.
-
-### Docker / Railway / Fly / Azure
-
-A `Dockerfile` is included. Any platform that can run a container can host it.
-
-The server reads the `PORT` environment variable automatically.
-
-## Security note
-
-This is a team utility with no authentication. Anyone who knows a room link can read/update that room. Use a hard-to-guess room name and do not expose sensitive information in it.
+Then open `http://127.0.0.1:8765`.
 
 ## Strategy backup
 
-The **Export** button produces JSON containing all categories, civs and rankings. The **Import** button restores it.
-
-This is useful if you want different tournament-specific strategy packs.
+**Export** creates JSON containing the entire strategy library — all versions, categories and map overrides — but intentionally does not include the current room's live draft marks.
