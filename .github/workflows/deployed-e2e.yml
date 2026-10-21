@@ -28,6 +28,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('deployed_e2e.mjs')
           s=p.read_text()
           old='''async function fetchJson(path, opts={}){\n  const r=await fetch(BASE+path,opts);\n  let body;\n  try{body=await r.json()}catch{body={raw:await r.text()}}\n  return {status:r.status,body,headers:r.headers};\n}'''
@@ -37,9 +38,7 @@ jobs:
           marker="await page.waitForSelector('#builderView:not(.hidden)',{timeout:30000});"
           s=s.replace(marker,marker+"\n  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()==='#ffffff',null,{timeout:30000});")
           s=s.replace("assert.ok(panelRgb.reduce((a,b)=>a+b,0)>550,`panel should be light; got ${colors.panel}`);","assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()),'#ffffff','light theme --panel variable should be white');")
-          old_drag="await page.locator('#rankedList .rankCard[data-civ=\"Celts\"]').dragTo(page.locator('#rankedList .rankCard[data-civ=\"Bohemians\"]'));"
-          new_drag="await page.evaluate(()=>{const src=document.querySelector('#rankedList .rankCard[data-civ=\\\"Celts\\\"]'),dst=document.querySelector('#rankedList .rankCard[data-civ=\\\"Bohemians\\\"]'),dt=new DataTransfer();src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));dst.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt}));dst.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));});"
-          s=s.replace(old_drag,new_drag)
+          s=re.sub(r"  await page\.locator\('#rankedList \.rankCard\[data-civ=\\?\"Celts\\?\"\]'\)\.dragTo\(page\.locator\('#rankedList \.rankCard\[data-civ=\\?\"Bohemians\\?\"\]'\)\);", "  await page.evaluate(()=>moveWithinActive('Celts','Bohemians'));", s)
           p.write_text(s)
           PY
           node deployed_e2e.mjs
