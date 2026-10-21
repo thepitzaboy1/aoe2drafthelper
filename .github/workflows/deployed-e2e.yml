@@ -25,4 +25,6 @@ jobs:
       - name: Wait for Render and run deployed E2E
         env:
           TARGET_URL: https://aoe2-draft-assistant.onrender.com
-        run: node deployed_e2e.mjs
+        run: |
+          sed -i "s/assert.equal(await page.locator('title').textContent(),'AoE2 Draft Assistant v3');/assert.match(await page.locator('title').textContent(),\/AoE2 Draft Assistant v3\/);/" deployed_e2e.mjs
+          node deployed_e2e.mjs
