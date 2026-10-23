@@ -1,0 +1,34 @@
+name: live-plan-v35-e2e
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'static/**'
+      - 'server.py'
+      - 'live_plan_v35_e2e.mjs'
+      - '.github/workflows/live-plan-v35-e2e.yml'
+
+jobs:
+  deployed-live-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: |
+          node --check static/strategy-plan-v35.js
+          node --check static/aoe2cm-fix.js
+          node --check live_plan_v35_e2e.mjs
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test deployed Render app
+        env:
+          TARGET_URL: https://aoe2-draft-assistant.onrender.com
+        run: node live_plan_v35_e2e.mjs
