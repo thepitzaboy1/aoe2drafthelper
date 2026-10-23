@@ -29,3 +29,14 @@ function parseDraftObject(root){
   renderLive();
   return events.length;
 }
+
+// v3.5 is intentionally loaded after all synchronous live-draft modules so its
+// admin-ban parser and lineup optimizer are the final runtime definitions.
+window.addEventListener('DOMContentLoaded',()=>{
+  if(document.querySelector('script[data-strategy-plan-v35]'))return;
+  const s=document.createElement('script');
+  s.src='strategy-plan-v35.js?v=3.5.0';
+  s.dataset.strategyPlanV35='1';
+  s.onerror=()=>console.error('Failed to load strategy plan v3.5');
+  document.body.appendChild(s);
+});
