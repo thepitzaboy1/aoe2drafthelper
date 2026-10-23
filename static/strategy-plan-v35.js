@@ -64,8 +64,11 @@ window.STRATEGY_PLAN_VERSION="3.5";
     }
     walk(root);
 
+    const explicitAdminBans=collectExplicitAdminBans(root);
     const ours=$('#ourSide')?.value||app.draft.ourSide||'host',auto={},meta=emptyDraftMeta(),bans=[];
-    meta.eventCount=events.length;
+    // Keep real action count when events exist, but still mark collection-only
+    // payloads as synced so admin bans are visible in the source summary.
+    meta.eventCount=events.length||explicitAdminBans.length;
     // Picks first.
     for(const e of events){
       if(!/pick|steal/.test(e.action))continue;
@@ -85,7 +88,7 @@ window.STRATEGY_PLAN_VERSION="3.5";
     }
     // Some AoE2CM payload variants expose admin/global bans as collections rather
     // than completed events. Capture those too and keep them authoritative.
-    for(const civ of collectExplicitAdminBans(root)){
+    for(const civ of explicitAdminBans){
       auto[norm(civ)]='ban';meta.adminBans.push(civ);
     }
     for(const k of Object.keys(meta))if(Array.isArray(meta[k]))meta[k]=uniq(meta[k]);
